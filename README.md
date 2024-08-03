@@ -8,7 +8,7 @@ Typed and minimal **Building blocks** for creating a Commandline argument parsin
 - Declarative typed interface for parsing commandline arguments
 - Core library for only parsing/transforming. It's *not* for building an application or commandline tool.
 - Use `Result` (from rust), or `Either` (Scala) structure for handling success/errors.
-- It's intend for people who don't want to use/wrap argparse or similar. (e.g., Pydantic, Attrs, dataclass)
+- It's intend for people who are writing commandline interfaces leaning on, or bridging Pydantic/attrs/dataclasses to build CLI tools and don't want to use/wrap argparse or similar.
 - Try to make this as type-safe as possible.
 - This is an *exploring and proof of concept state*. 
 
