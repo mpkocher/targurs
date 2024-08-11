@@ -27,6 +27,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install "result>=0.17.0"
         pip install pytest
     - name: Test with pytest
       run: |
