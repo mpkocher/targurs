@@ -1,6 +1,7 @@
 """Scrappy smoke tests"""
 
-from typing import Callable
+from typing import TypeAlias, NoReturn
+from typing import Callable as F
 from targurs import (
     extractor,
     DEMO_TARGURS,
@@ -11,9 +12,12 @@ from targurs import (
 )
 
 
-def _apply(f: Callable) -> Callable[[list[str]], None]:
-    def g(sx: list[str]) -> None:
-        f(sx)
+def _apply(f: F[[list[str]], None]) -> F[[list[str]], F[[], None]]:
+    # FIXME. this is perhaps trying to be too clever
+    def g(sx: list[str]) -> F[[], None]:
+        def h() -> None:
+            return f(sx)
+        return h
 
     return g
 
@@ -37,10 +41,10 @@ def _test_basic_ok(sx: list[str]) -> None:
 
     print(("rd", rd))
     c0 = MyModel(**(rd.value))
-    assert c0.run() is None
+    assert c0.run() is None # type:ignore
 
 
-_to_ok = _apply(_test_basic_ok)
+_to_ok: F[[list[str]], F[[], None]] = _apply(_test_basic_ok)
 
 test_basic_ok_00 = _to_ok(
     ["input.txt", "in.csv", "--filter-score", "1.23", "--alpha", "3.14"]
@@ -56,7 +60,8 @@ def _test_basic_bad(sx: list[str]) -> None:
 
 _to_bad = _apply(_test_basic_bad)
 
-test_bad_00 = _to_bad(["input.txt"])
+# Should be F[[], None]
+test_bad_00: F[[], None] = _to_bad(["input.txt"])
 test_bad_01 = _to_bad(["input.txt", "in.csv", "--debugx", "--filter-score", "1.23"])
 test_bad_02 = _to_bad(["input.txt", "in.csv", "--filter-score", "1.23.bad"])
 test_bad_03 = _to_bad(["input.txt", "in.csv", "--alpha", "1.23.bad"])
