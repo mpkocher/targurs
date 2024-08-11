@@ -7,10 +7,11 @@ Typed and minimal **Building blocks** for creating a Commandline argument parsin
 
 - Declarative typed interface for parsing commandline arguments
 - Core library for only parsing/transforming. It's *not* for building an application or commandline tool.
-- Use `Result` (from rust), or `Either` (Scala) structure for handling success/errors.
+- Use `Result` (from rust), or `Either` (Scala) structure for handling success/errors. (Updated to use [Result](https://github.com/rustedpy/result))
 - It's intend for people who are writing commandline interfaces leaning on, or bridging Pydantic/attrs/dataclasses to build CLI tools and don't want to use/wrap argparse or similar.
 - Try to make this as type-safe as possible.
 - This is an *exploring and proof of concept state*. 
+
 
 ## Example 
 
@@ -104,7 +105,7 @@ Let's create an explicit example using a dataclass.
 ```python
 from typing import Any
 from dataclasses import dataclass
-from targurs import CmdAction, ParsedArg, Result
+from targurs import CmdAction, ParsedArg
 from targurs import parsed_arg_list_to_dict
 
 @dataclass
@@ -131,7 +132,8 @@ The general processing (with some explicit type annotations/hints to help commun
 ```python
 import sys
 
-from targurs import Targurs, Result, Action, Success, Failure, NoopAction
+from result import Ok, Err, Result
+from targurs import Targurs, Action, NoopAction
 from targurs import DEMO_TARGURS # Example instance manually translated/created from MyModel
 
 sx = ["input.txt", "in.csv", "--filter-score", "1.23", "--alpha", "3.14"]
@@ -146,13 +148,13 @@ def demo(tx: Targurs, sx: list[str]) -> int:
     otherwise, try to run the "Cmd" action. If failure, map to exit code 1.
 
     """
-    actions: list[Result[Action]] = []
+    actions: list[Result[Action, Exception]] = []
 
     # Process "Eager Action first, then add CmdAction"
     rest: list[str] = sx
     for eager_action_flag in tx.actions:
         action, rest = eager_action_flag.to_action(rest)
-        actions.append(Success(action))
+        actions.append(Ok(action))
 
     cmd_action: Result[Action] = tx.to_parsed_args(sx).map(to_action)
     actions.append(cmd_action)
@@ -160,14 +162,15 @@ def demo(tx: Targurs, sx: list[str]) -> int:
     # Iterate over actions and exit
     for i, result_action in enumerate(actions):
         match result_action:
-            case Success(act):
+            case Ok(act):
                 match act:
                     case NoopAction():
                         pass
                     case _:
+                        # this should have a try-catch
                         act()
                         return 0
-            case Failure(ex):
+            case Err(ex):
                 sys.stderr.write(f"Failed to run. {ex}")
                 return 1
     else:
@@ -175,20 +178,23 @@ def demo(tx: Targurs, sx: list[str]) -> int:
         sys.stderr.write(f"Failed to run. No actions found.")
         return 2
 
-def run_demo() -> None:
+
+def run_demo() -> int:
     sx0 = ["input.txt", "in.csv", "--filter-score", "1.23", "--alpha", "3.14"]
     sx1 = ["--version"]
     sx2 = ["--help"]
     for sx in (sx0, sx1, sx2):
+        print(f"*** Running {sx}")
         exit_code = demo(DEMO_TARGURS, sx)
-        print(f"Exit-code={exit_code} for {sx}")
+        print(f"Exit-code={exit_code}")
+    return exit_code
 
 ```
 
 
 ## Requirement Details
 
-- Implement a minimal `Result` type with `Success[T] | Failure` 
+- Implement a minimal `Result` type with `Success[T] | Failure` (Updated to use [Result](https://github.com/rustedpy/result))
 - `--help` and `-h` are supported as an "Action"
 - `--version` and `-v` are supported
 - Positional arguments are supported

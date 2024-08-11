@@ -1,14 +1,12 @@
 import sys
 from typing import Any
+from result import Ok, Err, Result
 
 from targurs import MyModel, DEMO_TARGURS
 from targurs import parsed_arg_list_to_dict
 from targurs import (
     Targurs,
     ParsedArg,
-    Result,
-    Success,
-    Failure,
     CmdAction,
     Action,
     NoopAction,
@@ -38,13 +36,13 @@ def demo(tx: Targurs, sx: list[str]) -> int:
     otherwise, try to run the "Cmd" action. If failure, map to exit code 1.
 
     """
-    actions: list[Result[Action]] = []
+    actions: list[Result[Action, Exception]] = []
 
     # Process "Eager Action first, then add CmdAction"
     rest: list[str] = sx
     for eager_action_flag in tx.actions:
         action, rest = eager_action_flag.to_action(rest)
-        actions.append(Success(action))
+        actions.append(Ok(action))
 
     cmd_action: Result[Action] = tx.to_parsed_args(sx).map(to_action)
     actions.append(cmd_action)
@@ -52,7 +50,7 @@ def demo(tx: Targurs, sx: list[str]) -> int:
     # Iterate over actions and exit
     for i, result_action in enumerate(actions):
         match result_action:
-            case Success(act):
+            case Ok(act):
                 match act:
                     case NoopAction():
                         pass
@@ -60,7 +58,7 @@ def demo(tx: Targurs, sx: list[str]) -> int:
                         # this should have a try-catch
                         act()
                         return 0
-            case Failure(ex):
+            case Err(ex):
                 sys.stderr.write(f"Failed to run. {ex}")
                 return 1
     else:
