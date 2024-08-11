@@ -12,4 +12,4 @@ demo:
 fmt:
 	black .
 
-all: fmt compile test
+all: fmt compile test demo

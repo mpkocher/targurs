@@ -1,6 +1,7 @@
 import abc
 from typing import Any, Generic, TypeVar, Callable, TypeAlias, Self
 from dataclasses import dataclass
+from result import Result, Ok, Err
 
 try:
     from typing import override
@@ -9,9 +10,6 @@ except ImportError:
 
 __all__ = [
     "Targurs",
-    "Success",
-    "Failure",
-    "Result",
     "NotFound",
     "ParsedArg",
     "extractor",
@@ -31,46 +29,6 @@ R = TypeVar("R")
 
 class NotFound(Exception):
     pass
-
-
-class Either(abc.ABC, Generic[T]):
-    value: T
-    __match_args__ = ("value",)
-
-    def __repr__(self) -> str:
-        return f"<{self.__class__.__name__} {self.value}>"
-
-    @abc.abstractmethod
-    def is_success(self) -> bool: ...
-
-    def is_failure(self) -> bool:
-        return not self.is_success()
-
-
-class Failure(Either[Exception]):
-    def __init__(self, error: Exception, /):
-        self.value = error
-
-    def map(self, f: Callable[[T], R]) -> Self:
-        # FIXME. this is a bad idea.
-        return self
-
-    def is_success(self) -> bool:
-        return False
-
-
-class Success(Either[T]):
-    def __init__(self, value: T, /):
-        self.value: T = value
-
-    def map(self, f: Callable[[T], R]) -> "Success[R]":
-        return Success(f(self.value))
-
-    def is_success(self) -> bool:
-        return True
-
-
-Result: TypeAlias = Success[T] | Failure
 
 
 class Action(abc.ABC):
@@ -155,7 +113,9 @@ class Extractor(Generic[T], abc.ABC):
     """Have to do this as a class because functions can't support generic's yet?"""
 
     @abc.abstractmethod
-    def __call__(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]: ...
+    def __call__(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]: ...
 
 
 class ExtractPositional(Extractor[T]):
@@ -164,21 +124,23 @@ class ExtractPositional(Extractor[T]):
         self.converter = converter
 
     @override
-    def __call__(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+    def __call__(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]:
         """ix is the identifier of the positional argument"""
         nx = len(sx)
         if sx:
             rest = [] if nx < 2 else sx[1:]
             # for mypy
-            pa: Result[ParsedArg[T]]
+            pa: Result[ParsedArg[T], Exception]
             try:
                 value: T = self.converter(sx[0])
-                pa = Success(ParsedArg(self.ix, value))
+                pa = Ok(ParsedArg(self.ix, value))
             except Exception as ex:
-                pa = Failure(ex)
+                pa = Err(ex)
             return pa, rest
         else:
-            return Failure(NotFound(f"Unable to find {self.ix}")), sx
+            return Err(NotFound(f"Unable to find {self.ix}")), sx
 
 
 class ExtractNonReqFlag(Extractor[T]):
@@ -194,19 +156,21 @@ class ExtractNonReqFlag(Extractor[T]):
         self.set_value = set_value  # Value that will be set if the flag is provided
 
     @override
-    def __call__(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+    def __call__(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]:
         rest: list[str] = []
         nx = len(sx)
         for i, s in enumerate(sx):
             if s in self.flags:
                 rx = sx[i + 1] if (i + 1) < nx else []
                 rest.extend(rx)
-                return Success(ParsedArg[T](self.ix, self.set_value)), rest
+                return Ok(ParsedArg[T](self.ix, self.set_value)), rest
             else:
                 rest.append(s)
 
         # use default value
-        return Success(ParsedArg[T](self.ix, self.default)), rest
+        return Ok(ParsedArg[T](self.ix, self.default)), rest
 
 
 class ExtractReqFlagAndValue(Extractor[T]):
@@ -222,7 +186,9 @@ class ExtractReqFlagAndValue(Extractor[T]):
         self.converter = converter
 
     @override
-    def __call__(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+    def __call__(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]:
         rest: list[str] = []
         nx = len(sx)
         for i, s in enumerate(sx):
@@ -232,13 +198,13 @@ class ExtractReqFlagAndValue(Extractor[T]):
                     rx = s[i + 2 :] if (i + 2) < nx else []
                     rest.extend(rx)
                     value: T = self.converter(raw_value)
-                    return Success(ParsedArg[T](self.ix, value)), rest
+                    return Ok(ParsedArg[T](self.ix, value)), rest
                 except Exception as ex:
-                    return Failure(ex), rest
+                    return Err(ex), rest
             else:
                 rest.append(s)
 
-        return Failure(NotFound(f"Failed to find {self.flags}")), rest
+        return Err(NotFound(f"Failed to find {self.flags}")), rest
 
 
 class ExtractNonReqFlagAndValue(Extractor[T]):
@@ -257,7 +223,9 @@ class ExtractNonReqFlagAndValue(Extractor[T]):
         self.default = default
 
     @override
-    def __call__(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+    def __call__(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]:
         rest: list[str] = []
         nx = len(sx)
         for i, s in enumerate(sx):
@@ -267,14 +235,14 @@ class ExtractNonReqFlagAndValue(Extractor[T]):
                     rx = s[i + 2 :] if (i + 2) < nx else []
                     rest.extend(rx)
                     value: T = self.converter(raw_value)
-                    return Success(ParsedArg[T](self.ix, value)), rest
+                    return Ok(ParsedArg[T](self.ix, value)), rest
                 except Exception as ex:
-                    return Failure(ex), rest
+                    return Err(ex), rest
             else:
                 rest.append(s)
 
         # Use default if not found
-        return Success(ParsedArg[T](self.ix, self.default)), rest
+        return Ok(ParsedArg[T](self.ix, self.default)), rest
 
 
 class Arg(abc.ABC, Generic[T]):
@@ -299,7 +267,9 @@ class Arg(abc.ABC, Generic[T]):
         self.description = description
 
     @abc.abstractmethod
-    def extract(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]: ...
+    def extract(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]: ...
 
 
 class Positional(Arg[T]):
@@ -316,7 +286,9 @@ class Positional(Arg[T]):
         self.extractor = ExtractPositional(self.ix, self.converter)
 
     @override
-    def extract(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+    def extract(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]:
         return self.extractor(sx)
 
 
@@ -346,7 +318,9 @@ class FlagNonReqArg(Arg[T]):
         self._extractor = ExtractNonReqFlag[T](self.ix, self.flags, default, set_value)
 
     @override
-    def extract(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+    def extract(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]:
         return self._extractor(sx)
 
 
@@ -375,15 +349,17 @@ class FlagNonReqKeyValueArg(Arg[T]):
         )
 
     @override
-    def extract(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+    def extract(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]:
         result, rest = self._extractor(sx)
         match result:
-            case Success(pa):
-                return Success(pa), rest
-            case Failure(ex) if isinstance(ex, NotFound):
-                return Success(ParsedArg[T](self.ix, self.default)), rest
-            case Failure(ex):
-                return Failure(ex), rest
+            case Ok(pa):
+                return Ok(pa), rest
+            case Err(ex) if isinstance(ex, NotFound):
+                return Ok(ParsedArg[T](self.ix, self.default)), rest
+            case Err(ex):
+                return Err(ex), rest
 
 
 class FlagReqKeyValueArg(Arg[T]):
@@ -407,13 +383,15 @@ class FlagReqKeyValueArg(Arg[T]):
         self._extractor = ExtractReqFlagAndValue[T](ix, flags, converter)
 
     @override
-    def extract(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+    def extract(
+        self, sx: list[str]
+    ) -> tuple[Result[ParsedArg[T], Exception], list[str]]:
         return self._extractor(sx)
 
 
 def __extract_driver(
-    targ: list[Arg[T]], xs: list[str], either: list[Result[ParsedArg[T]]]
-) -> tuple[list[Result[ParsedArg[T]]], list[str]]:
+    targ: list[Arg[T]], xs: list[str], either: list[Result[ParsedArg[T], Exception]]
+) -> tuple[list[Result[ParsedArg[T], Exception]], list[str]]:
     if targ:
         et, rest = targ[0].extract(xs)
         either.append(et)
@@ -422,25 +400,27 @@ def __extract_driver(
         return either, xs
 
 
-def extractor(targ: list[Arg[T]], xs: list[str]) -> Result[list[ParsedArg[T]]]:
+def extractor(
+    targ: list[Arg[T]], xs: list[str]
+) -> Result[list[ParsedArg[T]], Exception]:
     # bootstrapping
-    results: list[Result[ParsedArg[T]]] = []
+    results: list[Result[ParsedArg[T], Exception]] = []
 
     rx, rest = __extract_driver(targ, xs, results)
     if rest:
         ex = ValueError(f"Unexpected argument(s) found {rest}")
-        return Failure(ex)
+        return Err(ex)
 
     # Flatten results
     tx: list[ParsedArg[T]] = []
     for result in rx:
         match result:
-            case Success(pa):
+            case Ok(pa):
                 tx.append(pa)
-            case Failure() as var:
+            case Err() as var:
                 return var
 
-    return Success(tx)
+    return Ok(tx)
 
 
 class FlagAction(ToAction, FlagNonReqArg[T]):
@@ -485,12 +465,12 @@ class FlagHelpAction(FlagNonReqArgAction):
     def to_action(self, sx: list[str]) -> tuple[Action, list[str]]:
         result, rest = self.extract(sx)
         match result:
-            case Success(pa):
+            case Ok(pa):
                 if pa.value is True:
                     return HelpAction(self.description or "Help"), rest
                 else:
                     return NoopAction(), rest
-            case Failure():
+            case Err():
                 return NoopAction(), rest
 
 
@@ -510,12 +490,12 @@ class FlagVersionAction(FlagNonReqArgAction):
     def to_action(self, sx: list[str]) -> tuple[Action, list[str]]:
         result, rest = self.extract(sx)
         match result:
-            case Success(pa):
+            case Ok(pa):
                 if pa.value is True:
                     return VersionAction(self.version), rest
                 else:
                     return NoopAction(), rest
-            case Failure():
+            case Err():
                 return NoopAction(), rest
 
 
@@ -526,7 +506,7 @@ class Targurs:
         self.args = args
         self.actions = actions or []
 
-    def to_parsed_args(self, sx: list[str]) -> Result[list[ParsedArg[T]]]:
+    def to_parsed_args(self, sx: list[str]) -> Result[list[ParsedArg[T]], Exception]:
         return extractor(self.args, sx)
 
 

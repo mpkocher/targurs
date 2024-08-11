@@ -2,7 +2,7 @@
 name = "targurs"
 description = "Targurs"
 authors = [{ name = "M. Kocher", email = "michael.kocher@me.com" }]
-#dependencies = ["pydantic>=2.8.2"]
+dependencies = ["result>=0.17.0"]
 readme = "README.md"
 requires-python = ">= 3.12"
 dynamic = ['version']
