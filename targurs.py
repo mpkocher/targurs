@@ -1,6 +1,11 @@
 import abc
-from typing import Any, Generic, TypeVar, override, Callable, TypeAlias
+from typing import Any, Generic, TypeVar, Callable, TypeAlias
 from dataclasses import dataclass
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
 
 __all__ = [
     "Targurs",
@@ -36,7 +41,8 @@ class Either(abc.ABC, Generic[T]):
         return f"<{self.__class__.__name__} {self.value}>"
 
     @abc.abstractmethod
-    def is_success(self) -> bool: ...
+    def is_success(self) -> bool:
+        ...
 
     def is_failure(self) -> bool:
         return not self.is_success()
@@ -69,12 +75,12 @@ Result: TypeAlias = Success[T] | Failure
 
 
 class Action(abc.ABC):
-
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}>"
 
     @abc.abstractmethod
-    def __call__(self) -> None: ...
+    def __call__(self) -> None:
+        ...
 
 
 class NoopAction(Action):
@@ -151,7 +157,8 @@ class Extractor(Generic[T], abc.ABC):
     """Have to do this as a class because functions can't support generic's yet?"""
 
     @abc.abstractmethod
-    def __call__(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]: ...
+    def __call__(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+        ...
 
 
 class ExtractPositional(Extractor[T]):
@@ -295,7 +302,8 @@ class Arg(abc.ABC, Generic[T]):
         self.description = description
 
     @abc.abstractmethod
-    def extract(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]: ...
+    def extract(self, sx: list[str]) -> tuple[Result[ParsedArg[T]], list[str]]:
+        ...
 
 
 class Positional(Arg[T]):
@@ -419,7 +427,6 @@ def __extract_driver(
 
 
 def extractor(targ: list[Arg[T]], xs: list[str]) -> Result[list[ParsedArg[T]]]:
-
     # bootstrapping
     results: list[Result[ParsedArg[T]]] = []
 
