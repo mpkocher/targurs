@@ -1,6 +1,11 @@
 import abc
-from typing import Any, Generic, TypeVar, override, Callable, TypeAlias
+from typing import Any, Generic, TypeVar, Callable, TypeAlias, Self
 from dataclasses import dataclass
+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
 
 __all__ = [
     "Targurs",
@@ -46,7 +51,7 @@ class Failure(Either[Exception]):
     def __init__(self, error: Exception, /):
         self.value = error
 
-    def map(self, f: Callable[[T], R]) -> "Failure[R]":
+    def map(self, f: Callable[[T], R]) -> Self:
         # FIXME. this is a bad idea.
         return self
 
@@ -69,7 +74,6 @@ Result: TypeAlias = Success[T] | Failure
 
 
 class Action(abc.ABC):
-
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}>"
 
@@ -419,7 +423,6 @@ def __extract_driver(
 
 
 def extractor(targ: list[Arg[T]], xs: list[str]) -> Result[list[ParsedArg[T]]]:
-
     # bootstrapping
     results: list[Result[ParsedArg[T]]] = []
 
