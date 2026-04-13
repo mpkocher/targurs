@@ -19,7 +19,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=8.2.2", "pytest-cov>=4.0.0", "mypy>=1.11.1", "black>=24.8.0"]
+test = ["pytest>=8.2.2", "pytest-cov>=4.0.0", "mypy>=1.11.1", "black>=26.3.1"]
 
 [build-system]
 requires = ["hatchling"]
